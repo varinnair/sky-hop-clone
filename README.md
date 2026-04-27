@@ -1,73 +1,89 @@
-# Welcome to your Lovable project
+# Sky Hopper Clone
 
-## Project info
+A small React + TypeScript browser game inspired by Swing Copters.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+The player controls a propeller character that climbs through gaps in scrolling platforms while avoiding walls and swinging hammers.
 
-## How can I edit this code?
+## Run Locally
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Open the local URL printed by Vite, usually:
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```text
+http://localhost:5173/
+```
 
-**Use GitHub Codespaces**
+Build check:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```bash
+npm run build
+```
 
-## What technologies are used for this project?
+## Project Structure
 
-This project is built with:
+```text
+src/
+  components/game/
+    SwingCoptersGame.tsx  Main game scene and input event wiring
+    Character.tsx         Propeller character rendering
+    Platform.tsx          Platform bar rendering
+    Hammer.tsx            Swinging hammer rendering
+    Cloud.tsx             Background clouds
+    StartScreen.tsx       Start overlay
+    GameOver.tsx          Game-over overlay
+    ScoreDisplay.tsx      Score UI
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+  game/
+    constants.ts          Tunable game constants
+    types.ts              Game state and platform types
+    platforms.ts          Platform generation helpers
+    collision.ts          Wall, platform, and hammer collision checks
 
-## How can I deploy this project?
+  hooks/
+    useGameLoop.ts        Main game state, animation loop, scoring, and tap handler
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+  pages/
+    Index.tsx             App entry page that renders the game
+```
 
-## Can I connect a custom domain to my Lovable project?
+The generated `components/ui/` folder contains shadcn-style UI primitives. Most of it is not relevant to the game exercise.
 
-Yes, you can!
+## Useful Starting Points
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+Start with these files:
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- `src/components/game/SwingCoptersGame.tsx`
+- `src/hooks/useGameLoop.ts`
+- `src/game/constants.ts`
+- `src/game/collision.ts`
+- `src/game/platforms.ts`
+- `src/game/types.ts`
+
+## Interview Goal
+
+This codebase is being used as an interview debugging exercise. It builds, but the desktop controls and obstacle layout currently do not feel reliable enough to ship.
+
+Make the game respond consistently to player input on desktop, then consider how the same fix should behave on mobile.
+
+Known behavior to reproduce on desktop:
+
+- Arrow keys are expected to switch direction, but currently do nothing.
+- Mouse clicks can switch direction, but the character may still drift into a wall and feel hard to control.
+- Some platform gaps feel unfair because a hammer is placed directly in the path.
+- The character can keep leaning and moving toward one side even after the user clicks.
+
+Mobile/touch support should be considered, but a real phone is not required during the interview.
+
+The candidate should investigate the input handling and game loop, make a focused fix, and verify the game manually.
+
+## What To Avoid
+
+- Do not hide the problem by disabling wall or hammer collisions.
+- Do not rewrite the entire game.
+- Do not remove TypeScript checks or use broad `any` types.
+- Do not tune constants randomly without explaining what changed.
+- Do not rely on build success alone; manually play the game.
