@@ -1,17 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   CHARACTER_SCREEN_Y_RATIO,
-  GRAVITY_X,
-  HAMMER_MAX_ANGLE,
-  HAMMER_SWING_SPEED,
-  INITIAL_PLATFORM_COUNT,
-  MAX_VELOCITY_X,
-  PLATFORM_SPACING,
   SCROLL_SPEED,
 } from '@/game/constants';
 import { checkCollision } from '@/game/collision';
 import { createInitialPlatforms, createPlatform } from '@/game/platforms';
 import type { GameState, Platform } from '@/game/types';
+import { calculateRotationFromVelocity, stepHorizontalMovement, stepPlatforms } from '@/game/physics';
 
 export const useGameLoop = (screenWidth: number, screenHeight: number) => {
   const [gameState, setGameState] = useState<GameState>({
@@ -62,10 +57,42 @@ export const useGameLoop = (screenWidth: number, screenHeight: number) => {
     });
   }, [screenWidth, screenHeight]);
   
-  const gameLoop = useCallback((timestamp: number) => {
-    if (!lastTimeRef.current) lastTimeRef.current = timestamp;
-    const deltaTime = Math.min((timestamp - lastTimeRef.current) / 16.67, 2);
+  const getDeltaTime = useCallback((timestamp: number): number => {
+    if (!lastTimeRef.current) {
+      lastTimeRef.current = timestamp;
+      return 0;
+    }
+    
+    const rawDelta = (timestamp - lastTimeRef.current) / 16.67;
     lastTimeRef.current = timestamp;
+    return Math.min(rawDelta, 2);
+  }, []);
+  
+  const trySetDirection = useCallback((direction: -1 | 1) => {
+    if (gameStateRef.current.gameStatus !== 'playing') {
+      return;
+    }
+    
+    setGameState(prev => {
+      if (prev.gameStatus !== 'playing') {
+        return prev;
+      }
+      
+      const shouldDampenVelocity = prev.direction !== direction;
+      return {
+        ...prev,
+        direction,
+        velocityX: shouldDampenVelocity ? prev.velocityX * 0.2 : prev.velocityX,
+      };
+    });
+  }, []);
+  
+  const gameLoop = useCallback((timestamp: number) => {
+    const deltaTime = getDeltaTime(timestamp);
+    if (!deltaTime) {
+      animationFrameRef.current = requestAnimationFrame(gameLoop);
+      return;
+    }
     
     const state = gameStateRef.current;
     
@@ -77,67 +104,36 @@ export const useGameLoop = (screenWidth: number, screenHeight: number) => {
     // Update propeller animation
     const newPropellerAngle = (state.propellerAngle + 35 * deltaTime) % 360;
     
-    // Apply horizontal gravity (character swings left/right)
-    let newVelocityX = state.velocityX + GRAVITY_X * state.direction * deltaTime;
-    newVelocityX = Math.max(-MAX_VELOCITY_X, Math.min(MAX_VELOCITY_X, newVelocityX));
-    
-    // Update character X position
-    const newCharacterX = state.characterX + newVelocityX * deltaTime;
+    const { characterX: newCharacterX, velocityX: newVelocityX } = stepHorizontalMovement(
+      state.characterX,
+      state.velocityX,
+      state.direction,
+      deltaTime,
+      screenWidth
+    );
     
     // Scroll offset increases = platforms move DOWN the screen
     const newScrollOffset = state.scrollOffset + SCROLL_SPEED * deltaTime;
     
     // Calculate character rotation based on velocity
-    const newRotation = (newVelocityX / MAX_VELOCITY_X) * 25;
+    const platformStep = stepPlatforms(
+      state.platforms,
+      newScrollOffset,
+      screenHeight,
+      state.characterY,
+      (id, baseY) => generatePlatform(id, baseY),
+      Date.now(),
+      deltaTime
+    );
     
-    // Update hammer swing animations
-    let newPlatforms = state.platforms.map(p => {
-      let newAngle = p.hammerAngle + HAMMER_SWING_SPEED * p.hammerDirection * deltaTime;
-      let newDirection = p.hammerDirection;
-      
-      if (Math.abs(newAngle) > HAMMER_MAX_ANGLE) {
-        newDirection = -p.hammerDirection as 1 | -1;
-        newAngle = Math.sign(newAngle) * HAMMER_MAX_ANGLE;
-      }
-      
-      return {
-        ...p,
-        hammerAngle: newAngle,
-        hammerDirection: newDirection,
-      };
-    });
-    
-    // Check for score - when platform scrolls past the character
-    let newScore = state.score;
     const charY = state.characterY;
+    const newScore = state.score + platformStep.scoreGain;
+    const newPlatforms = platformStep.platforms;
     
-    newPlatforms = newPlatforms.map(p => {
-      const platformScreenY = p.y + newScrollOffset;
-      // Platform passed when it goes below the character
-      if (!p.passed && platformScreenY > charY) {
-        newScore++;
-        return { ...p, passed: true };
-      }
-      return p;
-    });
-    
-    // Remove platforms that are too far below screen and add new ones at top
-    newPlatforms = newPlatforms.filter(p => {
-      const platformScreenY = p.y + newScrollOffset;
-      return platformScreenY < screenHeight + 100;
-    });
-    
-    // Add new platforms at the top
-    while (newPlatforms.length < INITIAL_PLATFORM_COUNT) {
-      const highestY = Math.min(...newPlatforms.map(p => p.y));
-      newPlatforms.push(generatePlatform(
-        Date.now() + Math.random() * 1000,
-        highestY - PLATFORM_SPACING
-      ));
-    }
+    const newRotation = calculateRotationFromVelocity(newVelocityX);
     
     // Check collision
-    if (checkCollision(newCharacterX, charY, newPlatforms, newScrollOffset, screenWidth)) {
+    if (checkCollision(newCharacterX, charY, newPlatforms, newScrollOffset)) {
       // Game over
       const finalScore = newScore;
       if (finalScore > highScore) {
@@ -167,7 +163,7 @@ export const useGameLoop = (screenWidth: number, screenHeight: number) => {
     });
     
     animationFrameRef.current = requestAnimationFrame(gameLoop);
-  }, [screenHeight, screenWidth, generatePlatform, highScore]);
+  }, [getDeltaTime, screenHeight, screenWidth, generatePlatform, highScore]);
   
   const startGame = useCallback(() => {
     initializeGame();
@@ -183,13 +179,10 @@ export const useGameLoop = (screenWidth: number, screenHeight: number) => {
   
   const handleTap = useCallback(() => {
     if (gameStateRef.current.gameStatus === 'playing') {
-      setGameState(prev => ({
-        ...prev,
-        direction: prev.direction === 1 ? -1 : 1,
-        velocityX: prev.velocityX * 0.2, // Reduce velocity on direction change for snappier control
-      }));
+      const nextDirection = gameStateRef.current.direction === 1 ? -1 : 1;
+      trySetDirection(nextDirection);
     }
-  }, []);
+  }, [trySetDirection]);
   
   const restartGame = useCallback(() => {
     if (animationFrameRef.current) {
@@ -221,6 +214,7 @@ export const useGameLoop = (screenWidth: number, screenHeight: number) => {
     highScore,
     startGame,
     handleTap,
+    setDirection: trySetDirection,
     restartGame,
   };
 };

@@ -13,17 +13,12 @@ export function checkCollision(
   charX: number,
   charY: number,
   platforms: Platform[],
-  scrollOffset: number,
-  screenWidth: number
+  scrollOffset: number
 ): boolean {
   const charLeft = charX - CHARACTER_WIDTH / 2;
   const charRight = charX + CHARACTER_WIDTH / 2;
   const charTop = charY - CHARACTER_HEIGHT / 2;
   const charBottom = charY + CHARACTER_HEIGHT / 2;
-
-  if (charLeft < 0 || charRight > screenWidth) {
-    return true;
-  }
 
   for (const platform of platforms) {
     const platformScreenY = platform.y + scrollOffset;
