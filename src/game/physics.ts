@@ -1,4 +1,4 @@
-import { CHARACTER_WIDTH, GRAVITY_X, MAX_VELOCITY_X, HAMMER_MAX_ANGLE, HAMMER_SWING_SPEED, PLATFORM_SPACING, INITIAL_PLATFORM_COUNT } from './constants';
+import { GRAVITY_X, MAX_VELOCITY_X, HAMMER_MAX_ANGLE, HAMMER_SWING_SPEED, PLATFORM_SPACING, INITIAL_PLATFORM_COUNT } from './constants';
 import type { Direction, Platform } from './types';
 
 export interface HorizontalMovementResult {
@@ -11,7 +11,6 @@ export function stepHorizontalMovement(
   velocityX: number,
   direction: Direction,
   deltaTime: number,
-  screenWidth: number
 ): HorizontalMovementResult {
   const nextVelocity = clamp(
     velocityX + GRAVITY_X * direction * deltaTime,
@@ -20,18 +19,11 @@ export function stepHorizontalMovement(
   );
 
   const nextCharacterX = characterX + nextVelocity * deltaTime;
-  const leftWall = CHARACTER_WIDTH / 2;
-  const rightWall = screenWidth - CHARACTER_WIDTH / 2;
 
-  if (nextCharacterX < leftWall) {
-    return { characterX: leftWall, velocityX: 0 };
-  }
-
-  if (nextCharacterX > rightWall) {
-    return { characterX: rightWall, velocityX: 0 };
-  }
-
-  return { characterX: nextCharacterX, velocityX: nextVelocity };
+  return {
+    characterX: nextCharacterX,
+    velocityX: nextVelocity,
+  };
 }
 
 export function calculateRotationFromVelocity(velocityX: number): number {

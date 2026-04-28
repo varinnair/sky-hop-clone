@@ -133,7 +133,7 @@ export const useGameLoop = (screenWidth: number, screenHeight: number) => {
     const newRotation = calculateRotationFromVelocity(newVelocityX);
     
     // Check collision
-    if (checkCollision(newCharacterX, charY, newPlatforms, newScrollOffset)) {
+    if (checkCollision(newCharacterX, charY, newPlatforms, newScrollOffset, screenWidth)) {
       // Game over
       const finalScore = newScore;
       if (finalScore > highScore) {
